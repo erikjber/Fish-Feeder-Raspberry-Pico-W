@@ -2,7 +2,7 @@
 and updating them in response to network client requests."""
 
 from ds1307 import DS1307
-from servocontroller import ServoController
+from hardware_controller import HardwareController
 import utime
 
 class FeedingTimeHandler:
@@ -63,7 +63,7 @@ class FeedingTimeHandler:
         return True
     
     
-    def handle_client(self, client_socket:socket, servo_controller:ServoController) -> None:
+    def handle_client(self, client_socket:socket, hardware_controller:HardwareController) -> None:
         """Read the request from the client and react accordingly."""
         recv_data = []
         while True:
@@ -89,7 +89,7 @@ class FeedingTimeHandler:
                 # Manual running
                 millis = recv_data[1]*100
                 print(f"Manual running for {millis} ms.")
-                servo_controller.start_servo(millis)
+                hardware_controller.start_servo(millis)
                 break
             elif len(recv_data) > 5:
                 # Client sent long request, goodbye

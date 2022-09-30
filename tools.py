@@ -26,19 +26,36 @@ def connect_wifi(wlan, ssid, password):
         print("connected")
         print(f"ip = {wlan.ifconfig()[0]}")
         
-def sync_time(rtc:DS1307) -> bool:
-    """Set the RTC to the NTP time. Returns true if sync succeded."""
-    result = False
-    try:
-        ntptime.settime()
-        (year, month, mday, hour, minute, second, weekday, yearday) = time.gmtime()
-        rtc.datetime((year,month,mday,weekday,hour,minute,second))
-        result = True
-    except OSError as e:
-        print(f"Exception in time sync: {e}")
-        if e.errno == 110:
-            # Timeout error, do nothing
-            pass
-        else:
-            raise e
-    return result
+        
+def sync_time(network_present:bool, rtc:DS1307):
+    """Set the RTC to the NTP time. Gives up if it can't sync."""
+    if network_present:
+        print(f"RTC datetime before sync: {rtc.get_weekday()}, {rtc.get_formatted_time()}")
+        count = 0
+        try:
+            while True:
+                try:
+                    print("Syncing time with NTP server.")
+                    ntptime.settime()
+                    (year, month, mday, hour, minute, second, weekday, yearday) = time.gmtime()
+                    print("Setting new datetime.")
+                    rtc.datetime((year,month,mday,weekday,hour,minute,second))
+                    print("Sync complete.")
+                    break
+                except OSError as e:
+                    print(f"Exception in time sync: {e}")
+                    if e.errno != 110:
+                        # Ignore timeout errors, raise everything else
+                        raise e
+                
+                count += 1
+                if count > 3:
+                    print("Giving up sync")
+                    break
+                print("Time sync timed out, trying again.")
+        except:
+            print("Time sync failed. Trying to carry on regardless.")
+        print(f"RTC datetime after sync:  {rtc.get_weekday()}, {rtc.get_formatted_time()}")
+    
+
+

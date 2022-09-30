@@ -1,6 +1,7 @@
 """Driver for the DS1307 module with code for reading/writing NVRAM."""
 from micropython import const
 import utime
+import _thread
 
 DATETIME_REG = const(0) 
 CHIP_HALT    = const(128)
@@ -13,6 +14,7 @@ class DS1307(object):
     def __init__(self, i2c, addr=0x68):
         self.i2c = i2c
         self.addr = addr
+        self.mutex = _thread.allocate_lock()
         self.weekday_start = 1
         self.weekdays = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday", "Sunday"]
         self._halted = self.is_running()==False
@@ -101,11 +103,10 @@ class DS1307(object):
         """ Retry the write untill it succeeds. Each failure causes a 1 ms delay.
             This can hang forever if there is a hardware fault.
         """
-        success = False
-        while not success:
+        while True:
             try:
-                self.i2c.writeto_mem(self.addr, address, bytes)
-                success = True
+                with self.mutex:
+                    return self.i2c.writeto_mem(self.addr, address, bytes)            
             except:
                 print("Retrying write.")
                 utime.sleep_ms(1)
@@ -115,11 +116,10 @@ class DS1307(object):
         """ Retry the read untill it succeeds. Each failure causes a 1 ms delay.
             This can hang forever if there is a hardware fault.
         """
-        success = False
-        while not success:
+        while True:
             try:
-                return self.i2c.readfrom_mem(self.addr, address, length)
-                success = True
+                with self.mutex:
+                    return self.i2c.readfrom_mem(self.addr, address, length)
             except:
                 print("Retrying read.")
                 utime.sleep_ms(1)
