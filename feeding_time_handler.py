@@ -3,6 +3,7 @@ and updating them in response to network client requests."""
 
 from ds1307 import DS1307
 from hardware_controller import HardwareController
+from tools import are_times_within_5_minutes
 import utime
 
 class FeedingTimeHandler:
@@ -101,6 +102,17 @@ class FeedingTimeHandler:
         for address in range(18):
             (hour,minute,deciseconds) = self.get_feeding_time(address)
             client_socket.write(bytearray([hour,minute,deciseconds]))
+            
+    def no_feeding_time_within_5_min(self) -> bool:
+        """ Return true if there is a feeding time starting within five minutes of the current time,
+            false otherwise."""
+        (year,month,mday,weekday,the_hour,the_minute,second) = self.rtc.datetime()
+        for address in range(18):
+            (hour,minute,deciseconds) = self.get_feeding_time(address)
+            if are_times_within_5_minutes(hour,minute, the_hour, the_minute):
+                return False
+        return True
+        
     
         
 

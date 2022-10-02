@@ -1,15 +1,14 @@
 from machine import Pin
+from micropython import const
 from ds1307 import DS1307
 from feeding_time_handler import FeedingTimeHandler
-from tools import connect_wifi, sync_time
 from beacon import Beacon
 from hardware_controller import HardwareController
-from micropython import const
+from tools import connect_wifi, sync_time, setup_server_socket
 import time
 import utime
 import ntptime
 import network
-import socket
 import wifi_secrets
 
 BEACON_INTERVAL_MS = const(1000)
@@ -45,33 +44,14 @@ except:
 # Create a beacon that transmits the port we are listening on
 beacon = Beacon(str(PORT))
 beacon_deadline = time.ticks_add(time.ticks_ms(),BEACON_INTERVAL_MS)
-    
-def setup_server_socket():
-    """Initialise listening socket"""
-    try:
-        print("Attempting to create server socket...")
-        serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        serversocket.bind(("0.0.0.0",PORT))
-        serversocket.settimeout(0.001)
-        serversocket.listen(5)
-        print("Server socket created.")
-        return serversocket
-    except OSError as e:
-        print(f"Could not create server socket. Error: {e}")
-        return None
         
+sync_time(network_present, rtc)
+utime.sleep_ms(1000)
+serversocket = setup_server_socket(PORT)
+last_second = 0
 
-def handle_network():
-    """ Check for incoming connections, handle them.
-        If connection is lost, reconnect.
-        Also sends beacon, if it's time."""
-    global serversocket
-    global hardware_controller
-    global feeding_time_handler
-    global wlan
-    global beacon_deadline
-    global beacon
-    global network_present
+# Main loop
+while True:
     if network_present and serversocket is not None:
         try:
             (clientsocket, address) = serversocket.accept()
@@ -97,24 +77,17 @@ def handle_network():
         except Exception as e:
             print(f"Could not connect to network {e}")
             network_present = False
-    elif serversocket is None:
+    if serversocket is None:
         print("Trying to set up server socket")
-        serversocket = setup_server_socket()
-        
-sync_time(network_present, rtc)
-utime.sleep_ms(1000)
-serversocket = setup_server_socket()
-last_second = 0
-
-# Main loop
-while True:
-    handle_network()
+        serversocket = setup_server_socket(PORT)
     
     # Some functions are only called once per minute
     (year,month,mday,weekday,hour,minute,second) = rtc.datetime()
-    if (last_second-second) > 20:
+    diff = last_second-second
+    if diff > 20:
         # Time sync is carried out every hour, on the hour
-        if minute == 0:
+        # Time sync is NOT carried out if there's a feeding time within five minutes
+        # in either direction, to avoid double-feeding if the time is adjusted backwards.
+        if minute == 0 and feeding_time_handler.no_feeding_time_within_5_min():
             sync_time(network_present, rtc)
     last_second = second
-
