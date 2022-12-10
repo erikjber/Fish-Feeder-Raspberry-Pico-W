@@ -6,3 +6,6 @@ https://www.thingiverse.com/thing:5517562
 
 The source code for the accompanying Android app can be found here:   
 https://github.com/erikjber/Fish-Feeder-App
+
+
+The project has been [covered in the December 2022 issue of MagPi](https://magpi.raspberrypi.com/issues/124/pdf/download), the official Raspberry Pi magazine.
